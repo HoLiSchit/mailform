@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Login – Mailform Dashboard</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --border: #e2e5eb;
+    --text: #16181d;
+    --text-muted: #656d7a;
+    --accent: #2f5fe0;
+    --accent-hover: #2549b3;
+    --danger: #d5432f;
+    --shadow: 0 1px 2px rgba(20, 24, 33, 0.06), 0 1px 1px rgba(20, 24, 33, 0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161b;
+      --surface: #1c1f26;
+      --border: #2c303a;
+      --text: #eef0f4;
+      --text-muted: #9aa2b1;
+      --accent: #6d8dff;
+      --accent-hover: #8ba1ff;
+      --danger: #f0685a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; padding: 1rem;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow);
+    padding: 2rem; width: 320px; max-width: 100%;
+  }
+  .brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.4rem; }
+  .brand svg { color: var(--accent); flex: none; }
+  h1 { font-size: 1.05rem; margin: 0; letter-spacing: -0.01em; }
+  label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-top: 0.9rem; }
+  input {
+    width: 100%; margin-top: 0.3rem; padding: 0.55rem 0.6rem; border: 1px solid var(--border); border-radius: 7px;
+    font-size: 0.95rem; background: var(--surface); color: var(--text); font-family: inherit;
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button {
+    margin-top: 1.4rem; width: 100%; padding: 0.6rem; border: none; border-radius: 7px;
+    background: var(--accent); color: #fff; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+  }
+  button:hover { background: var(--accent-hover); }
+  button:disabled { opacity: 0.6; cursor: default; }
+  #err { color: var(--danger); font-size: 0.83rem; margin-top: 0.8rem; min-height: 1.2em; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M3.5 6.5L11.15 12.1C11.66 12.47 12.34 12.47 12.85 12.1L20.5 6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1>Mailform Dashboard</h1>
+    </div>
+    <form id="loginForm">
+      <label for="username">Benutzername</label>
+      <input type="text" id="username" autocomplete="username" required autofocus />
+      <label for="password">Passwort</label>
+      <input type="password" id="password" autocomplete="current-password" required />
+      <div id="err"></div>
+      <button type="submit" id="submitBtn">Anmelden</button>
+    </form>
+  </div>
+<script>
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("submitBtn");
+  const err = document.getElementById("err");
+  err.textContent = "";
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: document.getElementById("username").value,
+        password: document.getElementById("password").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      err.textContent = data.error || "Login fehlgeschlagen";
+      btn.disabled = false;
+      return;
+    }
+    window.location.href = "/";
+  } catch (e2) {
+    err.textContent = "Verbindungsfehler";
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mailform Dashboard</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --border: #e2e5eb;
+    --text: #16181d;
+    --text-muted: #656d7a;
+    --accent: #2f5fe0;
+    --accent-hover: #2549b3;
+    --accent-soft: #eaf0ff;
+    --accent-soft-border: #b9cdfb;
+    --danger: #d5432f;
+    --danger-hover: #b13323;
+    --danger-soft: #fdeeec;
+    --success: #1f8a4c;
+    --code-bg: #eef0f4;
+    --shadow: 0 1px 2px rgba(20, 24, 33, 0.06), 0 1px 1px rgba(20, 24, 33, 0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161b;
+      --surface: #1c1f26;
+      --border: #2c303a;
+      --text: #eef0f4;
+      --text-muted: #9aa2b1;
+      --accent: #6d8dff;
+      --accent-hover: #8ba1ff;
+      --accent-soft: #1e2a4d;
+      --accent-soft-border: #35468a;
+      --danger: #f0685a;
+      --danger-hover: #f4877b;
+      --danger-soft: #3a2020;
+      --success: #4ade80;
+      --code-bg: #262a33;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem 4rem;
+    background: var(--bg); color: var(--text);
+  }
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.25rem; }
+  .brand { display: flex; align-items: center; gap: 0.6rem; }
+  .brand svg { flex: none; color: var(--accent); }
+  h1 { font-size: 1.25rem; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 1rem; margin: 0 0 0.9rem; }
+  .lede { color: var(--text-muted); font-size: 0.85rem; margin: 0.35rem 0 1.5rem; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.25rem 1.4rem; margin-bottom: 1.25rem; box-shadow: var(--shadow);
+  }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 560px; }
+  th, td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+  th { color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  tr:last-child td { border-bottom: none; }
+  .empty { color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0; }
+
+  button {
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 7px; padding: 0.45rem 0.85rem; font-size: 0.83rem; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 0.4rem; transition: background 0.12s ease;
+  }
+  button:hover { background: var(--code-bg); }
+  button.icon-only { padding: 0.45rem; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+  button.danger:hover { background: var(--danger-soft); }
+  button.secondary { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-soft-border); }
+  button.secondary:hover { filter: brightness(1.05); }
+  button svg { flex: none; width: 15px; height: 15px; }
+
+  form label { display: block; margin-top: 0.9rem; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+  form input[type=text], form input[type=number], form input[type=url], form textarea, form select {
+    width: 100%; margin-top: 0.3rem; padding: 0.5rem 0.6rem; border: 1px solid var(--border); border-radius: 7px;
+    font-size: 0.9rem; background: var(--surface); color: var(--text); font-family: inherit;
+  }
+  form input:focus, form textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .checkbox-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.9rem; }
+  .checkbox-row input { width: auto; margin: 0; }
+  .checkbox-row label { margin: 0; }
+
+  .row { display: flex; gap: 0.75rem; align-items: flex-end; }
+  .row > div { flex: 1; min-width: 0; }
+  .hint { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; }
+  .endpoint { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code-bg); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.82rem; }
+  .badge { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; color: var(--text-muted); }
+  .badge.locked { color: var(--accent); }
+  .badge svg { flex: none; width: 13px; height: 13px; }
+  #msg { font-size: 0.83rem; margin-top: 0.75rem; display: flex; align-items: center; gap: 0.4rem; }
+  #msg svg { flex: none; width: 17px; height: 17px; }
+  #msg:empty { display: none; }
+  #msg.error { color: var(--danger); }
+  #msg.ok { color: var(--success); }
+  .actions-cell { display: flex; gap: 0.4rem; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M3.5 6.5L11.15 12.1C11.66 12.47 12.34 12.47 12.85 12.1L20.5 6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1>Mailform Dashboard</h1>
+    </div>
+    <button id="logoutBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 17L20 12L15 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 20H5C3.9 20 3 19.1 3 18V6C3 4.9 3.9 4 5 4H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Abmelden
+    </button>
+  </div>
+  <p class="lede">Änderungen an Targets starten Mailform automatisch neu, damit sie sofort aktiv werden.</p>
+
+  <div class="card">
+    <h2>Targets</h2>
+    <div class="table-scroll">
+      <table id="targetsTable">
+        <thead><tr><th>Name</th><th>Endpoint</th><th>Empfänger</th><th>API-Key</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="emptyState" class="empty" hidden>Noch keine Targets angelegt.</div>
+  </div>
+
+  <div class="card">
+    <h2 id="formTitle">Neues Target</h2>
+    <form id="targetForm">
+      <label for="f-name">Name (bestimmt den Endpoint-Pfad)</label>
+      <input type="text" id="f-name" placeholder="z.B. kontakt-website1" required />
+      <div class="hint">Nur Kleinbuchstaben, Zahlen, - und _. Endpoint wird: <span id="endpointPreview" class="endpoint">&lt;name&gt;</span></div>
+
+      <label for="f-recipients">Empfänger (eine E-Mail-Adresse pro Zeile)</label>
+      <textarea id="f-recipients" rows="2" placeholder="info@example.com"></textarea>
+
+      <label for="f-smtp">SMTP-URL</label>
+      <input type="text" id="f-smtp" placeholder="smtps://user:pass@host" />
+
+      <div class="row">
+        <div>
+          <label for="f-origin">Origin (optional, leer = alle erlaubt)</label>
+          <input type="text" id="f-origin" placeholder="https://meine-website.de" />
+          <div class="hint">Nur Schema + Host, <strong>ohne Pfad</strong> (Browser senden im Origin-Header nie einen Pfad - mit Pfad schlägt der Vergleich immer fehl).</div>
+        </div>
+        <div>
+          <label for="f-from">Absender-Adresse (from)</label>
+          <input type="text" id="f-from" placeholder="forms@example.com" />
+        </div>
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="f-fixedFrom" />
+        <label for="f-fixedFrom">Absender immer fest auf obige Adresse setzen (empfohlen für Mailcow)</label>
+      </div>
+      <div class="hint">Die E-Mail-Adresse des Besuchers wird dann nur als Reply-To verwendet, nicht als Absender. Vermeidet SMTP-Ablehnungen und Spam-Filterung durch fehlgeschlagene SPF-Prüfung.</div>
+
+      <div class="row">
+        <div>
+          <label for="f-rl-timespan">Rate-Limit: Zeitfenster (Sekunden)</label>
+          <input type="number" id="f-rl-timespan" value="300" />
+        </div>
+        <div>
+          <label for="f-rl-requests">Rate-Limit: erlaubte Requests</label>
+          <input type="number" id="f-rl-requests" value="3" />
+        </div>
+      </div>
+
+      <label for="f-key">API-Key (leer = kein Key nötig)</label>
+      <div class="row">
+        <div><input type="text" id="f-key" placeholder="wird per Klick generiert" /></div>
+        <button type="button" id="genKey" class="secondary">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 7C16.6569 7 18 8.34315 18 10C18 11.6569 16.6569 13 15 13C13.9905 13 13.0967 12.5009 12.5511 11.7358L6 18L4 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 15L11 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Generieren
+        </button>
+      </div>
+
+      <label for="f-subjectPrefix">Subject-Prefix (optional)</label>
+      <input type="text" id="f-subjectPrefix" placeholder="[Kontakt] " />
+
+      <div id="msg"></div>
+
+      <div class="row" style="margin-top:1.25rem;">
+        <button type="submit" class="primary" style="flex: none;">Speichern</button>
+        <button type="button" id="cancelEdit" style="display:none; flex: none;">Abbrechen</button>
+        <div></div>
+      </div>
+    </form>
+  </div>
+
+<script>
+let editingName = null;
+let publicHost = "";
+
+function endpointFor(name) {
+  return (publicHost ? publicHost.replace(/\/$/, "") : "") + "/" + name;
+}
+
+const ICONS = {
+  edit: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20L8.5 19L19 8.5C19.8 7.7 19.8 6.4 19 5.6L18.4 5C17.6 4.2 16.3 4.2 15.5 5L5 15.5L4 20Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.5 6.5L17.5 10.5" stroke="currentColor" stroke-width="1.6"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 7H19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9 7V5C9 4.4 9.4 4 10 4H14C14.6 4 15 4.4 15 5V7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7 7L7.7 19C7.8 19.6 8.3 20 8.9 20H15.1C15.7 20 16.2 19.6 16.3 19L17 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="10.5" width="14" height="9" rx="1.8" stroke="currentColor" stroke-width="1.6"/><path d="M8 10.5V8C8 5.8 9.8 4 12 4C14.2 4 16 5.8 16 8V10.5" stroke="currentColor" stroke-width="1.6"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13L9.5 17.5L19 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  alert: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9V13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="16.2" r="0.9" fill="currentColor"/><path d="M10.6 3.9C11.2 2.9 12.8 2.9 13.4 3.9L20.6 16.3C21.2 17.3 20.5 18.6 19.3 18.6H4.7C3.5 18.6 2.8 17.3 3.4 16.3L10.6 3.9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+};
+
+async function api(path, opts) {
+  const res = await fetch(path, {
+    headers: { "Content-Type": "application/json" },
+    ...opts,
+  });
+  if (res.status === 401) {
+    window.location.href = "/login";
+    throw new Error("Nicht angemeldet");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data.errors && data.errors.join(", ")) || data.error || res.statusText);
+  return data;
+}
+
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  await fetch("/api/logout", { method: "POST" });
+  window.location.href = "/login";
+});
+
+function showMsg(text, ok) {
+  const el = document.getElementById("msg");
+  el.innerHTML = (ok ? ICONS.check : ICONS.alert) + `<span>${text}</span>`;
+  el.className = ok ? "ok" : "error";
+}
+
+async function loadTargets() {
+  const targets = await api("/api/targets");
+  const tbody = document.querySelector("#targetsTable tbody");
+  const table = document.getElementById("targetsTable");
+  const empty = document.getElementById("emptyState");
+  tbody.innerHTML = "";
+
+  empty.hidden = targets.length > 0;
+  table.style.display = targets.length > 0 ? "" : "none";
+
+  for (const t of targets) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${t.name}</td>
+      <td><span class="endpoint">${endpointFor(t.name)}</span></td>
+      <td>${(t.recipients || []).join(", ")}</td>
+      <td><span class="badge ${t.key ? "locked" : ""}">${t.key ? ICONS.lock + " gesetzt" : "offen"}</span></td>
+      <td class="actions-cell">
+        <button data-edit="${t.name}" class="secondary">${ICONS.edit}Bearbeiten</button>
+        <button data-del="${t.name}" class="danger">${ICONS.trash}Löschen</button>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+  tbody.querySelectorAll("[data-edit]").forEach((btn) =>
+    btn.addEventListener("click", () => startEdit(btn.dataset.edit))
+  );
+  tbody.querySelectorAll("[data-del]").forEach((btn) =>
+    btn.addEventListener("click", () => deleteTarget(btn.dataset.del))
+  );
+}
+
+async function startEdit(name) {
+  const t = await api(`/api/targets/${encodeURIComponent(name)}`);
+  editingName = name;
+  document.getElementById("formTitle").textContent = "Target bearbeiten: " + name;
+  document.getElementById("f-name").value = t.name;
+  document.getElementById("f-name").disabled = true;
+  document.getElementById("f-recipients").value = (t.recipients || []).join("\n");
+  document.getElementById("f-smtp").value = t.smtp || "";
+  document.getElementById("f-origin").value = t.origin || "";
+  document.getElementById("f-from").value = t.from || "";
+  document.getElementById("f-fixedFrom").checked = !!t.fixedFrom;
+  document.getElementById("f-rl-timespan").value = t.rateLimit ? t.rateLimit.timespan : 300;
+  document.getElementById("f-rl-requests").value = t.rateLimit ? t.rateLimit.requests : 3;
+  document.getElementById("f-key").value = t.key || "";
+  document.getElementById("f-subjectPrefix").value = t.subjectPrefix || "";
+  document.getElementById("cancelEdit").style.display = "inline-flex";
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function resetForm() {
+  editingName = null;
+  document.getElementById("targetForm").reset();
+  document.getElementById("f-name").disabled = false;
+  document.getElementById("formTitle").textContent = "Neues Target";
+  document.getElementById("cancelEdit").style.display = "none";
+  loadConfig();
+}
+
+async function loadConfig() {
+  const { defaultSmtp, publicHost: ph } = await api("/api/config");
+  publicHost = ph || "";
+  if (defaultSmtp && !document.getElementById("f-smtp").value) {
+    document.getElementById("f-smtp").value = defaultSmtp;
+  }
+  const preview = document.getElementById("endpointPreview");
+  const currentName = document.getElementById("f-name").value;
+  preview.textContent = endpointFor(currentName || "<name>");
+}
+
+async function deleteTarget(name) {
+  if (!confirm(`Target "${name}" wirklich löschen?`)) return;
+  try {
+    await api(`/api/targets/${encodeURIComponent(name)}`, { method: "DELETE" });
+    showMsg(`Target "${name}" gelöscht und Mailform neu gestartet.`, true);
+    loadTargets();
+  } catch (e) {
+    showMsg(e.message, false);
+  }
+}
+
+document.getElementById("f-name").addEventListener("input", (e) => {
+  document.getElementById("endpointPreview").textContent = endpointFor(e.target.value || "<name>");
+});
+
+document.getElementById("genKey").addEventListener("click", () => {
+  api("/api/generate-key").then(({ key }) => (document.getElementById("f-key").value = key));
+});
+
+document.getElementById("cancelEdit").addEventListener("click", resetForm);
+
+document.getElementById("targetForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = {
+    recipients: document.getElementById("f-recipients").value.split("\n").map((s) => s.trim()).filter(Boolean),
+    smtp: document.getElementById("f-smtp").value.trim(),
+    origin: document.getElementById("f-origin").value.trim(),
+    from: document.getElementById("f-from").value.trim(),
+    fixedFrom: document.getElementById("f-fixedFrom").checked,
+    subjectPrefix: document.getElementById("f-subjectPrefix").value.trim(),
+    key: document.getElementById("f-key").value.trim(),
+    rateLimit: {
+      timespan: Number(document.getElementById("f-rl-timespan").value),
+      requests: Number(document.getElementById("f-rl-requests").value),
+    },
+  };
+
+  try {
+    if (editingName) {
+      await api(`/api/targets/${encodeURIComponent(editingName)}`, { method: "PUT", body: JSON.stringify(body) });
+      showMsg(`Target "${editingName}" gespeichert und Mailform neu gestartet.`, true);
+    } else {
+      body.name = document.getElementById("f-name").value.trim();
+      await api("/api/targets", { method: "POST", body: JSON.stringify(body) });
+      showMsg(`Target "${body.name}" angelegt und Mailform neu gestartet.`, true);
+    }
+    resetForm();
+    loadTargets();
+  } catch (e) {
+    showMsg(e.message, false);
+  }
+});
+
+loadConfig();
+loadTargets();
+</script>
+</body>
+</html>
