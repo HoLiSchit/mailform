@@ -39,6 +39,10 @@ export const targetModel = {
         type: "string",
         presence: false
     },
+    fixedFrom: {
+        type: "boolean",
+        presence: false
+    },
     rateLimit: {
         type: "object",
         presence: { allowEmpty: false }

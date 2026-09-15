@@ -6,6 +6,13 @@ export interface Target {
     subjectPrefix?: string;
     redirect?: Redirects;
     key?: string;
+    /**
+     * If true, the header/envelope "from" always uses `from` (never the
+     * request's own from field) - the request's from is used as Reply-To
+     * instead. Needed for SMTP providers (e.g. Mailcow) that reject a
+     * "from" address not owned by the authenticated account.
+     */
+    fixedFrom?: boolean;
     rateLimit?: TargetRateLimit;
     captcha?: TargetCaptchaOptions
 }
