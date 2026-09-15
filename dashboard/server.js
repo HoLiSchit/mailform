@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3006;
 const TARGETS_DIR = process.env.TARGETS_DIR || "/opt/mailform/targets";
 const CONTAINER_NAME = process.env.MAILFORM_CONTAINER || "mailform";
 const DEFAULT_SMTP = process.env.DEFAULT_SMTP || "";
+const PUBLIC_HOST = process.env.PUBLIC_HOST || "";
 const DASH_USER = process.env.DASH_USER || "admin";
 const DASH_PASS = process.env.DASH_PASS || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || "";
@@ -253,8 +254,8 @@ function buildTargetObject(body) {
   return target;
 }
 
-app.get("/api/default-smtp", (req, res) => {
-  res.json({ defaultSmtp: DEFAULT_SMTP });
+app.get("/api/config", (req, res) => {
+  res.json({ defaultSmtp: DEFAULT_SMTP, publicHost: PUBLIC_HOST });
 });
 
 app.get("/api/generate-key", (req, res) => {

@@ -37,6 +37,7 @@ Configure via environment variables:
 | `DASH_PASS` | Dashboard login password *(required)* | - |
 | `SESSION_SECRET` | Random secret used to sign the session cookie *(required)* | - |
 | `DEFAULT_SMTP` | SMTP URL pre-filled when creating a new target | *(empty)* |
+| `PUBLIC_HOST` | Public base URL Mailform is reachable at (e.g. `https://forms.example.com`), shown in the UI as the endpoint for each target. Leave empty to just show the relative path (`/<target>`). | *(empty)* |
 
 Generate `DASH_PASS` and `SESSION_SECRET` yourself, e.g.:
 

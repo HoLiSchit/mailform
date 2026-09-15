@@ -58,7 +58,8 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     padding: 1.25rem 1.4rem; margin-bottom: 1.25rem; box-shadow: var(--shadow);
   }
-  table { width: 100%; border-collapse: collapse; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 560px; }
   th, td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
   th { color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
   tr:last-child td { border-bottom: none; }
@@ -95,7 +96,9 @@
   .endpoint { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code-bg); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.82rem; }
   .badge { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; color: var(--text-muted); }
   .badge.locked { color: var(--accent); }
+  .badge svg { flex: none; width: 13px; height: 13px; }
   #msg { font-size: 0.83rem; margin-top: 0.75rem; display: flex; align-items: center; gap: 0.4rem; }
+  #msg svg { flex: none; width: 17px; height: 17px; }
   #msg:empty { display: none; }
   #msg.error { color: var(--danger); }
   #msg.ok { color: var(--success); }
@@ -120,10 +123,12 @@
 
   <div class="card">
     <h2>Targets</h2>
-    <table id="targetsTable">
-      <thead><tr><th>Name</th><th>Endpoint</th><th>Empfänger</th><th>API-Key</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div class="table-scroll">
+      <table id="targetsTable">
+        <thead><tr><th>Name</th><th>Endpoint</th><th>Empfänger</th><th>API-Key</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
     <div id="emptyState" class="empty" hidden>Noch keine Targets angelegt.</div>
   </div>
 
@@ -132,7 +137,7 @@
     <form id="targetForm">
       <label for="f-name">Name (bestimmt den Endpoint-Pfad)</label>
       <input type="text" id="f-name" placeholder="z.B. kontakt-website1" required />
-      <div class="hint">Nur Kleinbuchstaben, Zahlen, - und _. Endpoint wird: <span id="endpointPreview" class="endpoint">forms.mineco.de/&lt;name&gt;</span></div>
+      <div class="hint">Nur Kleinbuchstaben, Zahlen, - und _. Endpoint wird: <span id="endpointPreview" class="endpoint">&lt;name&gt;</span></div>
 
       <label for="f-recipients">Empfänger (eine E-Mail-Adresse pro Zeile)</label>
       <textarea id="f-recipients" rows="2" placeholder="info@example.com"></textarea>
@@ -147,7 +152,7 @@
         </div>
         <div>
           <label for="f-from">Absender-Adresse (from)</label>
-          <input type="text" id="f-from" placeholder="forms@mineco.de" />
+          <input type="text" id="f-from" placeholder="forms@example.com" />
         </div>
       </div>
 
@@ -192,6 +197,11 @@
 
 <script>
 let editingName = null;
+let publicHost = "";
+
+function endpointFor(name) {
+  return (publicHost ? publicHost.replace(/\/$/, "") : "") + "/" + name;
+}
 
 const ICONS = {
   edit: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20L8.5 19L19 8.5C19.8 7.7 19.8 6.4 19 5.6L18.4 5C17.6 4.2 16.3 4.2 15.5 5L5 15.5L4 20Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.5 6.5L17.5 10.5" stroke="currentColor" stroke-width="1.6"/></svg>',
@@ -240,7 +250,7 @@ async function loadTargets() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${t.name}</td>
-      <td><span class="endpoint">forms.mineco.de/${t.name}</span></td>
+      <td><span class="endpoint">${endpointFor(t.name)}</span></td>
       <td>${(t.recipients || []).join(", ")}</td>
       <td><span class="badge ${t.key ? "locked" : ""}">${t.key ? ICONS.lock + " gesetzt" : "offen"}</span></td>
       <td class="actions-cell">
@@ -282,14 +292,18 @@ function resetForm() {
   document.getElementById("f-name").disabled = false;
   document.getElementById("formTitle").textContent = "Neues Target";
   document.getElementById("cancelEdit").style.display = "none";
-  loadDefaultSmtp();
+  loadConfig();
 }
 
-async function loadDefaultSmtp() {
-  const { defaultSmtp } = await api("/api/default-smtp");
+async function loadConfig() {
+  const { defaultSmtp, publicHost: ph } = await api("/api/config");
+  publicHost = ph || "";
   if (defaultSmtp && !document.getElementById("f-smtp").value) {
     document.getElementById("f-smtp").value = defaultSmtp;
   }
+  const preview = document.getElementById("endpointPreview");
+  const currentName = document.getElementById("f-name").value;
+  preview.textContent = endpointFor(currentName || "<name>");
 }
 
 async function deleteTarget(name) {
@@ -304,7 +318,7 @@ async function deleteTarget(name) {
 }
 
 document.getElementById("f-name").addEventListener("input", (e) => {
-  document.getElementById("endpointPreview").textContent = "forms.mineco.de/" + (e.target.value || "<name>");
+  document.getElementById("endpointPreview").textContent = endpointFor(e.target.value || "<name>");
 });
 
 document.getElementById("genKey").addEventListener("click", () => {
@@ -345,7 +359,7 @@ document.getElementById("targetForm").addEventListener("submit", async (e) => {
   }
 });
 
-loadDefaultSmtp();
+loadConfig();
 loadTargets();
 </script>
 </body>
