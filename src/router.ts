@@ -95,8 +95,21 @@ router.post("/:target", async (req: Request, res: Response) => {
         const fieldBody = fields["body"] instanceof Array ? fields["body"][0] : fields["body"]
 
         // send email
-        let from = EmailService.formatFromField(fieldFrom ?? target.from, fieldFirstName, fieldLastName);
-        let sent = await EmailService.sendMail(req.params.target, from, subject, fieldBody, files);
+        // With `fixedFrom`, the header/envelope "from" always stays the target's
+        // own address (some SMTP providers reject a "from" they don't own),
+        // while the visitor's address is only used as Reply-To.
+        let from: string;
+        let replyTo: string;
+
+        if (target.fixedFrom) {
+            from = EmailService.formatFromField(target.from, fieldFirstName, fieldLastName);
+            replyTo = fieldFrom ? EmailService.formatFromField(fieldFrom, fieldFirstName, fieldLastName) : from;
+        } else {
+            from = EmailService.formatFromField(fieldFrom ?? target.from, fieldFirstName, fieldLastName);
+            replyTo = from;
+        }
+
+        let sent = await EmailService.sendMail(req.params.target, from, replyTo, subject, fieldBody, files);
 
         if(sent instanceof Error || !sent) {
             if(target.redirect?.error) return res.redirect(getRedirectUrl(req, target.redirect.error));
