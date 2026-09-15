@@ -170,6 +170,9 @@ Authorization: Bearer your-optional-api-key
 - `404` Target not found.
 - `500` Sending the email failed.
 
+## 🖥️ Admin Dashboard
+An optional, self-hosted web UI for managing targets (recipients, SMTP, API keys, rate limits) without editing JSON files by hand. See [dashboard/README.md](/dashboard/README.md).
+
 ## 👋 Contribution
 Feel free to create issues and pull requests if you want!
 
