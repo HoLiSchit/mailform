@@ -37,6 +37,12 @@ docker run Feuerhamster/mailform
   -v /your/custom/path /app/targets
 ```
 
+The image runs `node dist/main.js` directly (so signals reach the process) as the non-root user `node` (uid 1000) and has a `HEALTHCHECK` against `/healthz`.
+
+**Hardened Compose setup:** see [docker-compose.example.yml](docker-compose.example.yml): `init`, read-only root filesystem with `tmpfs: /tmp` (uploads), all capabilities dropped, `no-new-privileges`, port bound to `127.0.0.1`, targets mounted read-only, log rotation (3 x 10 MB).
+
+**File permissions:** target files contain SMTP passwords and should be mode `0600`. The container user must be able to read them: set `user: "<uid>:<gid>"` in Compose (or `docker run --user`) to the owner of the files (`id mailform` on the host), or `chown`/`chgrp` the files to uid/gid 1000. Otherwise Mailform cannot read the targets and does not start.
+
 ### Manually
 *Requires NodeJS 16 or higher*
 
@@ -56,6 +62,18 @@ MailForm can be configured using environment variables.
 - `PORT` The port on which the application starts. If not provided, a random port will be selected.
 - `TARGETS_DIR` Path to the directory with your target files. Default is `/targets` of the project root.
 - `PROXY` A boolean that enables the "trust proxy" option of Express. **Enable this if you're using MailForm behind a reverse proxy like NGINX!** Default value is false.
+
+### Reloading targets, health check
+Targets are read at startup. To apply changes **without a restart**, send `SIGHUP`:
+
+```shell
+kill -HUP <pid>
+docker kill --signal=HUP mailform
+```
+
+Mailform logs `Targets reloaded` on success. If a target is invalid it logs `Reload failed: <reason>` and keeps running with the previous, working targets. **Only send SIGHUP to a version that contains this handler**, an older one exits on SIGHUP.
+
+`GET /healthz` returns `200 ok` (used by the Docker `HEALTHCHECK`). `SIGTERM`/`SIGINT` finish running requests before exiting.
 
 ### Targets
 Targets are your different endpoints each with its own rate limits and smtp provider.
@@ -177,6 +195,15 @@ Authorization: Bearer your-optional-api-key
 
 ## 🖥️ Admin Dashboard
 An optional, self-hosted web UI for managing targets (recipients, SMTP, API keys, rate limits) without editing JSON files by hand. See [dashboard/README.md](/dashboard/README.md).
+
+## 🧪 Tests
+```shell
+npm test
+```
+Runs the integration tests (Node test runner, builds first).
+
+## 🔒 Dependencies
+`npm audit` status of this fork: `dashboard/` has 0 known vulnerabilities. In the main project `npm audit fix` resolved everything fixable without breaking changes. Left open: `nodemailer` (<= 10.1.3 advisories; the fix is a new major version, not applied yet) and `validate.js` (ReDoS, no fix available). The affected nodemailer features (`envelope.size`, transport `name`, `List-*` headers, `raw`, file/URL access) are, as far as reviewed, not fed with visitor input by MailForm (not independently verified for every advisory).
 
 ## 👋 Contribution
 Feel free to create issues and pull requests if you want!
