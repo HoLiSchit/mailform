@@ -44,8 +44,30 @@
   --step-3: 1.5rem;
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: oklch(18.5% 0.012 260);
+  --surface: oklch(22% 0.014 260);
+  --sunken: oklch(16% 0.012 260);
+  --line: oklch(30% 0.015 260);
+  --line-strong: oklch(40% 0.02 260);
+  --text: oklch(94% 0.008 260);
+  --muted: oklch(72% 0.015 260);
+  --accent: oklch(74% 0.12 255);
+  --accent-hover: oklch(80% 0.1 255);
+  --accent-soft: oklch(30% 0.06 255);
+  --on-accent: oklch(18% 0.03 255);
+  --danger: oklch(72% 0.16 27);
+  --danger-soft: oklch(29% 0.06 27);
+  --ok: oklch(76% 0.13 150);
+  --ok-soft: oklch(28% 0.05 150);
+  --warn: oklch(80% 0.12 80);
+  --shadow-sheet: -12px 0 40px oklch(5% 0.01 260 / 0.5);
+}
+:root[data-theme="light"] { color-scheme: light; }
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: oklch(18.5% 0.012 260);
     --surface: oklch(22% 0.014 260);
     --sunken: oklch(16% 0.012 260);
@@ -91,6 +113,9 @@ h1, h2, h3, p { margin: 0; }
   height: 5px;
   background: repeating-linear-gradient(135deg, var(--stripe-red) 0 10px, transparent 10px 16px, var(--accent) 16px 26px, transparent 26px 32px);
 }
+
+/* Darstellung wechseln */
+.theme-toggle svg { width: 18px; height: 18px; }
 
 /* Buttons */
 .btn {
@@ -268,6 +293,7 @@ textarea.input { resize: vertical; min-height: 4.5rem; line-height: 1.45; }
 .login-card .inner { padding: 1.75rem; }
 .login-card .brand { margin-bottom: 1.25rem; }
 .login-card .btn { width: 100%; margin-top: 1.25rem; }
+.login-wrap .theme-toggle { position: fixed; top: 0.75rem; right: 0.75rem; width: auto; margin: 0; }
 
 /* Schmal: Liste wird gestapelt, Blatt füllt den Bildschirm */
 @media (max-width: 60rem) {

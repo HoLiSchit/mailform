@@ -114,6 +114,7 @@ export function createApp(config: Config, store: TargetStore, reloader: Reloader
     app.get("/login", publicFile("login.html"));
     app.get("/login.js", publicFile("login.js"));
     app.get("/app.css", publicFile("app.css"));
+    app.get("/theme.js", publicFile("theme.js"));
     app.get("/fonts/:file", (req, res) => res.sendFile(path.basename(String(req.params.file)), { root: path.join(publicDir, "fonts") }));
 
     const requireAuth = (req: Request, res: Response, next: NextFunction) => {
