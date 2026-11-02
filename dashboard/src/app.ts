@@ -50,7 +50,8 @@ export function createApp(config: Config, store: TargetStore, reloader: Reloader
     };
 
     const app = express();
-    app.set("trust proxy", true);
+    // Only the local reverse proxy is trusted: req.ip is the address it appended, a client-supplied X-Forwarded-For prefix is ignored
+    app.set("trust proxy", "loopback");
     app.disable("x-powered-by");
 
     app.use((_req, res, next) => {
@@ -65,6 +66,10 @@ export function createApp(config: Config, store: TargetStore, reloader: Reloader
     });
 
     app.use(express.json());
+    app.use((err: Error & { status?: number }, _req: Request, res: Response, next: NextFunction) => {
+        if (res.headersSent) return next(err);
+        res.status(err.status && err.status < 500 ? err.status : 500).json({ error: "Ungültige Anfrage" });
+    });
     app.use(
         cookieSession({
             name: "mfsession",

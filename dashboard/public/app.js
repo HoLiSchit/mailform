@@ -131,11 +131,9 @@ function renderRow(t) {
     onclick: (e) => { e.stopPropagation(); copy(endpointFor(t.name), "Endpoint"); },
   }, icon("copy"));
 
-  return h("div", { class: "row", role: "button", tabindex: "0", "aria-label": `${t.name} bearbeiten`,
-      onclick: () => openSheet(t.name),
-      onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSheet(t.name); } } },
+  return h("div", { class: "row" },
     h("div", { class: "cell" },
-      h("div", { class: "cell-name" }, t.name),
+      h("button", { class: "row-open", type: "button", onclick: () => openSheet(t.name) }, t.name),
       h("div", { class: "cell-endpoint" }, h("span", { class: "mono" }, endpointFor(t.name)), copyBtn)),
     h("div", { class: "cell cell-mail" }, h("div", { class: "cell-sub" }, (t.recipients || []).join(", "))),
     h("div", { class: "cell cell-origin" },

@@ -192,3 +192,19 @@ test("Status zeigt Container-Zustand", async () => {
     await start({ state: "running|healthy" });
     assert.deepEqual(await (await api("GET", "/api/status")).json(), { reloadMode: "hup", state: "running", health: "healthy" });
 });
+
+test("Login-Sperre lässt sich nicht mit gefälschtem X-Forwarded-For umgehen", async () => {
+    const attempt = (i) => fetch(base + "/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Forwarded-For": `10.0.0.${i}, 203.0.113.7` },
+        body: JSON.stringify({ username: "admin", password: "falsch" }),
+    });
+    for (let i = 0; i < 8; i++) assert.equal((await attempt(i)).status, 401);
+    assert.equal((await attempt(99)).status, 429);
+});
+
+test("Ungültiges JSON ergibt eine JSON-Fehlerantwort ohne Stacktrace", async () => {
+    const r = await fetch(base + "/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{kaputt" });
+    assert.equal(r.status, 400);
+    assert.deepEqual(await r.json(), { error: "Ungültige Anfrage" });
+});
