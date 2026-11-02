@@ -128,6 +128,37 @@ function readTarget(name) {
   return JSON.parse(raw);
 }
 
+// Geheimnisse (SMTP-Passwort, Captcha-Secret) gehen nie an den Browser
+const MASK = "********";
+
+function maskSmtp(url) {
+  return typeof url === "string" ? url.replace(/^(smtps?:\/\/[^:/@]+:)[^@]*(@)/, `$1${MASK}$2`) : url;
+}
+
+function maskTarget(t) {
+  const out = { ...t };
+  if (out.smtp) out.smtp = maskSmtp(out.smtp);
+  if (out.captcha && out.captcha.secret) out.captcha = { ...out.captcha, secret: MASK };
+  return out;
+}
+
+// Kommt die Maske zurück, bleibt das bisherige Passwort erhalten
+function restoreSmtp(newUrl, previousUrl) {
+  if (typeof newUrl !== "string" || !newUrl.includes(`:${MASK}@`) || typeof previousUrl !== "string") return newUrl;
+  const prev = /^(smtps?:\/\/[^:/@]+:)([^@]*)(@.*)$/.exec(previousUrl);
+  return prev ? newUrl.replace(`:${MASK}@`, `:${prev[2]}@`) : newUrl;
+}
+
+// Zieldateien enthalten Zugangsdaten: nur für den Besitzer lesbar
+function writeTargetFile(name, target) {
+  const file = targetPath(name);
+  fs.writeFileSync(file, JSON.stringify(target, null, 2), { mode: 0o600 });
+  fs.chmodSync(file, 0o600);
+}
+
+// Diese Felder pflegt das Formular. Alles andere (redirect, captcha, maxFileSizeMb ...) bleibt beim Bearbeiten erhalten.
+const UI_FIELDS = ["smtp", "recipients", "rateLimit", "origin", "from", "fixedFrom", "subjectPrefix", "key", "honeypot", "allowHtml", "allowUploads"];
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -232,7 +263,12 @@ function buildTargetObject(body) {
     },
   };
 
-  if (body.origin) target.origin = body.origin;
+  const origins = [].concat(body.origin || []).map((o) => String(o).trim()).filter(Boolean);
+  if (origins.length === 1) target.origin = origins[0];
+  else if (origins.length > 1) target.origin = origins;
+  if (body.honeypot) target.honeypot = String(body.honeypot).trim();
+  if (body.allowHtml) target.allowHtml = true;
+  if (body.allowUploads) target.allowUploads = true;
   if (body.from) target.from = body.from;
   if (body.fixedFrom) target.fixedFrom = true;
   if (body.subjectPrefix) target.subjectPrefix = body.subjectPrefix;
@@ -268,7 +304,7 @@ app.get("/api/targets", (req, res) => {
   const targets = files.map((f) => {
     const name = path.basename(f, ".json");
     try {
-      return { name, ...readTarget(name) };
+      return { name, ...maskTarget(readTarget(name)) };
     } catch (e) {
       return { name, error: "invalid JSON: " + e.message };
     }
@@ -280,7 +316,7 @@ app.get("/api/targets/:name", (req, res) => {
   const { name } = req.params;
   if (!NAME_RE.test(name)) return res.status(400).json({ error: "invalid name" });
   if (!fs.existsSync(targetPath(name))) return res.status(404).json({ error: "not found" });
-  res.json({ name, ...readTarget(name) });
+  res.json({ name, ...maskTarget(readTarget(name)) });
 });
 
 app.post("/api/targets", async (req, res) => {
@@ -301,7 +337,7 @@ app.post("/api/targets", async (req, res) => {
   if (errors.length) return res.status(422).json({ errors });
 
   fs.mkdirSync(TARGETS_DIR, { recursive: true });
-  fs.writeFileSync(targetPath(name), JSON.stringify(buildTargetObject(body), null, 2));
+  writeTargetFile(name, buildTargetObject(body));
 
   const restart = await restartAndVerify(() => {
     // New target caused a crash-loop: no prior version to restore, just remove it.
@@ -321,10 +357,15 @@ app.put("/api/targets/:name", async (req, res) => {
   if (errors.length) return res.status(422).json({ errors });
 
   const previousContent = fs.readFileSync(targetPath(name), "utf8");
-  fs.writeFileSync(targetPath(name), JSON.stringify(buildTargetObject(req.body), null, 2));
+  const previous = JSON.parse(previousContent);
+  const body = { ...req.body, smtp: restoreSmtp(req.body.smtp, previous.smtp) };
+
+  // Nicht im Formular gepflegte Felder aus der bisherigen Datei übernehmen
+  const kept = Object.fromEntries(Object.entries(previous).filter(([k]) => !UI_FIELDS.includes(k)));
+  writeTargetFile(name, { ...buildTargetObject(body), ...kept });
 
   const restart = await restartAndVerify(() => {
-    fs.writeFileSync(targetPath(name), previousContent);
+    fs.writeFileSync(targetPath(name), previousContent, { mode: 0o600 });
   });
 
   if (!restart.ok) return res.status(422).json({ error: restart.error });

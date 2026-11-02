@@ -56,6 +56,9 @@ Put it behind a reverse proxy with TLS (nginx/Apache/Caddy) - the dashboard
 itself only binds to `127.0.0.1` and has no TLS of its own.
 
 ## Notes
+- Secrets (SMTP password, captcha secret) are never sent to the browser. The UI shows `********`; leaving it unchanged keeps the stored password.
+- Target files are written with mode `0600` because they contain credentials.
+- Editing a target in the UI keeps fields it does not manage (`redirect`, `captcha`, `maxFileSizeMb`).
 - The dashboard writes target files directly and does not itself send mail;
   Mailform reads them exactly as before.
 - Deleting or invalidating the only target that made Mailform crash-loop is

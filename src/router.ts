@@ -1,5 +1,5 @@
 import {NextFunction, Request, Response, Router} from "express";
-import formidable from "formidable";
+import formidable, {Files} from "formidable";
 import { firstValues } from 'formidable/src/helpers/firstValues.js';
 import {TargetManager} from "./services/targetManager";
 import {Target} from "./@types/target";
@@ -13,6 +13,19 @@ import getRedirectUrl from "./util/redirect";
 const router: Router = Router();
 
 /**
+ * Return the allowed origin that matches the request, or null.
+ * `origin` in a target can be a single string or a list of strings.
+ */
+function matchOrigin(target: Target, requestOrigin: string | undefined): string | null {
+    const allowed = ([] as string[]).concat(target.origin ?? []);
+
+    if(allowed.length < 1) return "*";
+    if(requestOrigin && allowed.includes(requestOrigin)) return requestOrigin;
+
+    return null;
+}
+
+/**
  * Check if target exist, validate origin and send CORS headers.
  */
 router.use("/:target", async (req: Request, res: Response, next: NextFunction) => {
@@ -24,9 +37,12 @@ router.use("/:target", async (req: Request, res: Response, next: NextFunction) =
 
     let target: Target = TargetManager.targets.get(req.params.target);
 
-    // CORS
-    res.setHeader("Access-Control-Allow-Origin", target.origin ? target.origin : "*");
-    res.setHeader("Access-Control-Allow-Method", "POST");
+    // CORS: answer with the matching origin only, never a list
+    const origin = matchOrigin(target, req.header("origin"));
+
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Origin", origin ?? ([] as string[]).concat(target.origin)[0]);
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "*");
 
     if(req.method === "OPTIONS") {
@@ -34,7 +50,7 @@ router.use("/:target", async (req: Request, res: Response, next: NextFunction) =
     }
 
     // Check origin
-    if(target.origin && target.origin !== req.header("origin")) {
+    if(!origin) {
         if(target.redirect?.error) return res.redirect(getRedirectUrl(req, target.redirect.error));
         return res.status(403).end();
     }
@@ -61,12 +77,32 @@ router.post("/:target", async (req: Request, res: Response) => {
     }
 
     let target: Target = TargetManager.targets.get(req.params.target);
+    let files: Files = {};
 
-    // parse form
-    const form = formidable({});
+    // Uploads are off unless the target allows them; the size is capped either way
+    const form = formidable({
+        maxFileSize: (target.maxFileSizeMb ?? 5) * 1024 * 1024,
+        maxFiles: target.allowUploads ? 5 : 0
+    });
+
     try {
-        const [fieldsMultiple, files] = await form.parse(req);
-        const fields = firstValues(form, fieldsMultiple, []);
+        let fields: any;
+
+        if(req.is("application/json")) {
+            // express.json() has already consumed the stream, so formidable cannot parse it
+            fields = req.body ?? {};
+        } else {
+            const [fieldsMultiple, parsedFiles] = await form.parse(req);
+            files = parsedFiles;
+            fields = firstValues(form, fieldsMultiple, []);
+        }
+
+        // Honeypot: a filled hidden field means a bot. Pretend success, send nothing.
+        if(target.honeypot && fields[target.honeypot]) {
+            if(target.redirect?.success) return res.redirect(getRedirectUrl(req, target.redirect.success));
+            return res.status(200).end();
+        }
+
         const validationResult = validate(fields, postBody);
 
         // validate fields
@@ -98,22 +134,24 @@ router.post("/:target", async (req: Request, res: Response) => {
         // With `fixedFrom`, the header/envelope "from" always stays the target's
         // own address (some SMTP providers reject a "from" they don't own),
         // while the visitor's address is only used as Reply-To.
-        let from: string;
-        let replyTo: string;
+        const sender = EmailService.formatFromField(fieldFrom ?? target.from, fieldFirstName, fieldLastName);
+        let from;
+        let replyTo;
 
         if (target.fixedFrom) {
             from = EmailService.formatFromField(target.from, fieldFirstName, fieldLastName);
-            replyTo = fieldFrom ? EmailService.formatFromField(fieldFrom, fieldFirstName, fieldLastName) : from;
+            replyTo = fieldFrom ? sender : from;
         } else {
-            from = EmailService.formatFromField(fieldFrom ?? target.from, fieldFirstName, fieldLastName);
-            replyTo = from;
+            from = sender;
+            replyTo = sender;
         }
 
         let sent = await EmailService.sendMail(req.params.target, from, replyTo, subject, fieldBody, files);
 
         if(sent instanceof Error || !sent) {
             if(target.redirect?.error) return res.redirect(getRedirectUrl(req, target.redirect.error));
-            return res.status(500).send({ message: (<Error>sent).message }).end();
+            // The SMTP error stays in the log; the visitor only gets a generic message
+            return res.status(500).send({ message: "Sending the email failed" }).end();
         }
 
         if(target.redirect?.success) {
@@ -122,8 +160,12 @@ router.post("/:target", async (req: Request, res: Response) => {
 
         return res.status(200).end();
     } catch (err) {
+        // Too many or too large files (or any other parse problem)
+        const code = (err as any)?.httpCode;
         if(target.redirect?.error) return res.redirect(getRedirectUrl(req, target.redirect.error));
-        return res.status(500).send({ message: "Parse Error" }).end();
+        return res.status(code === 413 || code === 400 ? code : 500).send({ message: "Parse Error" }).end();
+    } finally {
+        EmailService.removeTempFiles(files);
     }
 });
 

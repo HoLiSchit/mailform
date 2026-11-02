@@ -147,9 +147,9 @@
 
       <div class="row">
         <div>
-          <label for="f-origin">Origin (optional, leer = alle erlaubt)</label>
-          <input type="text" id="f-origin" placeholder="https://meine-website.de" />
-          <div class="hint">Nur Schema + Host, <strong>ohne Pfad</strong> (Browser senden im Origin-Header nie einen Pfad - mit Pfad schlägt der Vergleich immer fehl).</div>
+          <label for="f-origin">Origin (eine pro Zeile, leer = alle erlaubt)</label>
+          <textarea id="f-origin" rows="2" placeholder="https://meine-website.de"></textarea>
+          <div class="hint">Nur Schema + Host, <strong>ohne Pfad</strong> (Browser senden im Origin-Header nie einen Pfad - mit Pfad schlägt der Vergleich immer fehl). Mehrere Zeilen, z. B. mit und ohne <code>www.</code> oder für eine Testseite.</div>
         </div>
         <div>
           <label for="f-from">Absender-Adresse (from)</label>
@@ -162,6 +162,22 @@
         <label for="f-fixedFrom">Absender immer fest auf obige Adresse setzen (empfohlen für Mailcow)</label>
       </div>
       <div class="hint">Die E-Mail-Adresse des Besuchers wird dann nur als Reply-To verwendet, nicht als Absender. Vermeidet SMTP-Ablehnungen und Spam-Filterung durch fehlgeschlagene SPF-Prüfung.</div>
+
+      <label for="f-honeypot">Honeypot-Feld (optional)</label>
+      <input type="text" id="f-honeypot" placeholder="website" />
+      <div class="hint">Name eines im Formular versteckten Feldes. Ist es ausgefüllt, wird die Anfrage still verworfen (es wird keine Mail versendet).</div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="f-allowHtml" />
+        <label for="f-allowHtml">HTML im Nachrichtentext erlauben</label>
+      </div>
+      <div class="hint">Aus (empfohlen): Der Text kommt als reiner Text an, Zeilenumbrüche bleiben erhalten und fremdes HTML wird nicht dargestellt.</div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="f-allowUploads" />
+        <label for="f-allowUploads">Datei-Anhänge erlauben (max. 5 Dateien)</label>
+      </div>
+      <div class="hint">Aus (empfohlen): Anfragen mit Dateien werden abgelehnt.</div>
 
       <div class="row">
         <div>
@@ -276,7 +292,10 @@ async function startEdit(name) {
   document.getElementById("f-name").disabled = true;
   document.getElementById("f-recipients").value = (t.recipients || []).join("\n");
   document.getElementById("f-smtp").value = t.smtp || "";
-  document.getElementById("f-origin").value = t.origin || "";
+  document.getElementById("f-origin").value = [].concat(t.origin || []).join("\n");
+  document.getElementById("f-honeypot").value = t.honeypot || "";
+  document.getElementById("f-allowHtml").checked = !!t.allowHtml;
+  document.getElementById("f-allowUploads").checked = !!t.allowUploads;
   document.getElementById("f-from").value = t.from || "";
   document.getElementById("f-fixedFrom").checked = !!t.fixedFrom;
   document.getElementById("f-rl-timespan").value = t.rateLimit ? t.rateLimit.timespan : 300;
@@ -333,7 +352,10 @@ document.getElementById("targetForm").addEventListener("submit", async (e) => {
   const body = {
     recipients: document.getElementById("f-recipients").value.split("\n").map((s) => s.trim()).filter(Boolean),
     smtp: document.getElementById("f-smtp").value.trim(),
-    origin: document.getElementById("f-origin").value.trim(),
+    origin: document.getElementById("f-origin").value.split("\n").map((s) => s.trim()).filter(Boolean),
+    honeypot: document.getElementById("f-honeypot").value.trim(),
+    allowHtml: document.getElementById("f-allowHtml").checked,
+    allowUploads: document.getElementById("f-allowUploads").checked,
     from: document.getElementById("f-from").value.trim(),
     fixedFrom: document.getElementById("f-fixedFrom").checked,
     subjectPrefix: document.getElementById("f-subjectPrefix").value.trim(),

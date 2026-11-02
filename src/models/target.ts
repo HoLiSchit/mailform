@@ -8,7 +8,22 @@ export const targetModel = {
         }
     },
     origin: {
+        presence: false
+    },
+    honeypot: {
         type: "string",
+        presence: false
+    },
+    allowHtml: {
+        type: "boolean",
+        presence: false
+    },
+    allowUploads: {
+        type: "boolean",
+        presence: false
+    },
+    maxFileSizeMb: {
+        type: "number",
         presence: false
     },
     recipients: {

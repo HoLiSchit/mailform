@@ -1,5 +1,7 @@
 import {File as FormidableFile, Files as FormidableFiles} from "formidable";
 import nodemailer, {Transporter} from "nodemailer";
+import Mail from "nodemailer/lib/mailer";
+import fs from "fs";
 import {Attachment as NodemailerAttachment} from "nodemailer/lib/mailer";
 import {TargetManager} from "./targetManager";
 import {Target} from "../@types/target";
@@ -50,27 +52,22 @@ export class EmailService {
     }
 
     /**
-     * Format an email "from" field with an address, first name and last name
-     * @param from
+     * Build an address object for an email "from"/"reply-to" field with an optional display name.
+     * The display name comes from the visitor, so characters that could fake a second address are removed.
+     * @param address Email address
      * @param firstName
      * @param lastName
-     * @return string The formatted "from" field
+     * @return Mail.Address
      */
-    public static formatFromField(from: string, firstName: string = null, lastName: string = null): string {
+    public static formatFromField(address: string, firstName: string = null, lastName: string = null): Mail.Address {
 
-        let result = "";
+        const name = [firstName, lastName]
+            .filter((part) => !!part)
+            .join(" ")
+            .replace(/[<>"\r\n,;]/g, "")
+            .trim();
 
-        if(firstName) result += firstName;
-
-        if(firstName && lastName) result += " ";
-
-        if(lastName) result += lastName;
-
-        if(result.length > 0) result += ` <${from}>`;
-
-        if(result.length < 1) result = from;
-
-        return result;
+        return { name, address };
 
     }
 
@@ -84,7 +81,7 @@ export class EmailService {
      * @param files Formidable files
      * @return Promise<boolean|Error> True if success, error object if not success
      */
-    public static async sendMail(targetName: string, from: string, replyTo: string, subject: string, body: string, files: FormidableFiles): Promise<boolean|Error> {
+    public static async sendMail(targetName: string, from: Mail.Address, replyTo: Mail.Address, subject: string, body: string, files: FormidableFiles): Promise<boolean|Error> {
 
         if(!this.targetTransports.has(targetName)) return false;
 
@@ -93,12 +90,14 @@ export class EmailService {
         let transporter: Transporter = this.targetTransports.get(targetName);
 
         try {
+            // Der Body kommt vom Besucher. Ohne `allowHtml` wird er als reiner Text versendet,
+            // damit weder fremdes HTML dargestellt wird noch Zeilenumbrüche verloren gehen.
             await transporter.sendMail({
                 from,
-                replyTo: from,
+                replyTo,
                 to: target.recipients,
                 subject,
-                html: body,
+                ...(target.allowHtml ? { html: body } : { text: body }),
                 attachments: this.mapFormidableFilesToNodemailerAttachments(files),
             });
         } catch (e) {
@@ -114,6 +113,21 @@ export class EmailService {
 
         return true;
 
+    }
+
+    /**
+     * Delete the temporary files formidable wrote to disk
+     * @param files Formidable files
+     */
+    public static removeTempFiles(files: FormidableFiles): void {
+        for (const fileKey in files) {
+            const fileValue = files[fileKey];
+            const fileValues: FormidableFile[] = fileValue instanceof Array ? fileValue : [fileValue];
+
+            for (const file of fileValues) {
+                if (file?.filepath) fs.unlink(file.filepath, () => {});
+            }
+        }
     }
 
 }

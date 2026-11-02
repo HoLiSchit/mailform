@@ -1,6 +1,7 @@
 export interface Target {
     smtp: string;
-    origin: string;
+    /** Erlaubte Origin(s), z. B. "https://example.org" oder eine Liste. Leer = alle. */
+    origin?: string | string[];
     recipients: string[];
     from?: string;
     subjectPrefix?: string;
@@ -13,6 +14,17 @@ export interface Target {
      * "from" address not owned by the authenticated account.
      */
     fixedFrom?: boolean;
+    /**
+     * Name eines Honeypot-Feldes. Ist es in der Anfrage gefüllt, wird die Anfrage
+     * stillschweigend als Erfolg behandelt, aber keine Mail versendet.
+     */
+    honeypot?: string;
+    /** Erlaubt HTML im Mail-Body. Standard: false, der Body wird als reiner Text versendet. */
+    allowHtml?: boolean;
+    /** Erlaubt Dateianhänge (Uploads). Standard: false, Anfragen mit Dateien werden abgelehnt. */
+    allowUploads?: boolean;
+    /** Maximale Größe je Datei in MB, wenn Uploads erlaubt sind. Standard: 5. */
+    maxFileSizeMb?: number;
     rateLimit?: TargetRateLimit;
     captcha?: TargetCaptchaOptions
 }

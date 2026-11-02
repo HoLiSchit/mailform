@@ -80,7 +80,11 @@ They are JSON files placed in the `/targets` directory.
 
 **Available fields:**
 - `smtp` *required* | A valid SMTP(S) url.
-- `origin` *optional* | A HTTP origin that is used for CORS and to restrict access. Default is * if not set.
+- `origin` *optional* | A HTTP origin (scheme + host, **no path**, e.g. `https://example.org`) or a list of origins that is used for CORS and to restrict access. Default is * if not set. The `Access-Control-Allow-Origin` header only ever contains the matching origin.
+- `honeypot` *optional* | Name of a hidden form field. If a request fills it, it is treated as a bot: the response is a success, but no email is sent.
+- `allowHtml` *optional* | Default `false`: the `body` is sent as plain text, line breaks are kept and HTML from visitors is not rendered. Set `true` to send the body as HTML.
+- `allowUploads` *optional* | Default `false`: requests with files are rejected. Set `true` to allow up to 5 attachments. Temporary files are deleted after the request.
+- `maxFileSizeMb` *optional* | Maximum size per file in MB when uploads are allowed. Default is 5.
 - `recipients` *required* | An array of email addresses which should receive the email.
 - `from` *optional* | The "from" field of an email. This is used as fallback if no "from" is provided in the request.
 - `fixedFrom` *optional* | If `true`, the email's "from" header/envelope always uses this target's `from` address, even if the request provides its own `from`. The request's `from` is then only used as the `Reply-To` header instead. Useful for SMTP providers (e.g. Mailcow) that reject a "from" address the authenticated account doesn't own.
@@ -107,7 +111,7 @@ Whether as formular data or json, the fields are the same.
 - `lastName` *optional* | A classic last name filed which will be attached to the "from" field of the email.
 - `subjectPrefix` *optional* | A Prefix for the email subject.
 - `subject` *required* | The email subject.
-- `body` *required* | The email body (supports HTML).
+- `body` *required* | The email body. Sent as plain text unless the target sets `allowHtml`.
   
 - `g-recaptcha-response` *only required if target use captcha* | Field for ReCaptcha response.
 - `h-captcha-response` *only required if target use captcha* | Field for hCaptcha response.
@@ -148,7 +152,7 @@ Simply make a request to `/:target` (replace with your target's file name).
 If you have set an API key, add the HTTP Authorization header with type `Bearer` and then the key.
 Make sure to also use the right origin (if not set automatically because the request is from a backend).
 
-> ⚠ Since the file upload feature got added, there is an Issue with `application/json`. Please use multipart form or form urlencoded for API requests. I am working on a rewrite where this gets fixed.
+`application/json` requests work as well as multipart and urlencoded forms.
 
 **Example request:** 
 ```http request
