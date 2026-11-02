@@ -1,0 +1,35 @@
+# Hardened example. Copy to docker-compose.yml and adjust.
+services:
+  mailform:
+    build: .
+    image: mailform
+    container_name: mailform
+    restart: unless-stopped
+    init: true
+    # Uid:gid that owns the target files (they are mode 0600 and contain SMTP passwords).
+    # On the server: `id mailform`. The image default is `node` (1000:1000).
+    user: "1001:1001"
+    read_only: true
+    tmpfs:
+      - /tmp # uploads / temp files
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PORT: "3005"
+      PROXY: "true"
+    ports:
+      - "127.0.0.1:3005:3005"
+    volumes:
+      - ./targets:/app/targets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:$${PORT}/healthz || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

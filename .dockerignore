@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.claude
+dashboard
+targets
+test
+*.md
