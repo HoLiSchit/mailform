@@ -12,7 +12,7 @@ worked - if not, the change is rolled back automatically and Mailform is told
 to load the old state again. There are two ways to do that, see `RELOAD_MODE`.
 
 ## Requirements
-- Node.js 18+
+- Node.js 20+
 - Docker, with the dashboard process able to run `docker restart <container>`
   (e.g. running as root or a user in the `docker` group)
 - Mailform running as a Docker container, with its `targets` directory
@@ -23,8 +23,12 @@ to load the old state again. There are two ways to do that, see `RELOAD_MODE`.
 
 ```shell
 cd dashboard
-npm install --omit=dev
+npm ci
+npm run build        # TypeScript -> dist/
+npm prune --omit=dev # optional: drop build tools on the server
 ```
+
+`server.js` stays the entry point (`node server.js`), it starts `dist/main.js`. Re-run `npm run build` after every update.
 
 Configure via environment variables:
 
@@ -74,6 +78,18 @@ SIGHUP handler** (this repository's current `Dockerfile`, started with
 `CMD ["node", "dist/main.js"]`). A container from an older image has no handler,
 and SIGHUP terminates the process. Update the image and recreate the container
 first, then switch the mode.
+
+## Development
+
+```shell
+npm test   # builds, then runs test/dashboard.test.js (reload logic with a fake docker, API, rollback, masking, 0600)
+```
+
+The UI is plain HTML/CSS/JS in `public/` without a build step (self-hosted fonts: Hanken Grotesk and JetBrains Mono, SIL OFL, licenses in `public/fonts/`). It follows the system light/dark setting. The header shows the container state (`docker inspect`) and the reload mode.
+
+## Reverse proxy and domain
+
+The dashboard works best on its **own subdomain** (e.g. `forms-admin.example.com`), separate from the Mailform endpoint host. Reasons: the session cookie and the CSP stay isolated from the public form endpoints, the login can be additionally protected at the proxy (IP allow-list, basic auth) without touching form traffic, and there is no clash between a dashboard path and a target name. Serving it under a path of the Mailform host (e.g. `/admin`) is possible with a proxy rule, but it needs path handling in the dashboard (all asset and API URLs are absolute, `/login`, `/api/...`) and makes a target named `admin` unusable, so it is not supported.
 
 ## Notes
 - Secrets (SMTP password, captcha secret) are never sent to the browser. The UI shows `********`; leaving it unchanged keeps the stored password.
