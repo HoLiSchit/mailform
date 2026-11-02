@@ -13,44 +13,70 @@ export class TargetManager {
     private static path: string = process.env.TARGETS_DIR ?? "targets";
 
     /**
-     * Load all targets from the targets directory
+     * Read and validate all targets. Throws if the directory cannot be read or a target is invalid.
+     * Nothing is changed until everything is valid.
      */
-    public static load(): void {
+    private static readAll(): Map<string, Target> {
 
-        let targets: string[];
-
-        console.log("Loading targets...");
+        let files: string[];
 
         try {
-            targets = fs.readdirSync(this.path);
+            files = fs.readdirSync(this.path);
         } catch (e) {
-            throw new Error("Cannot load targets" + e);
+            throw new Error("Cannot load targets: " + e);
         }
 
-        targets = targets.filter((file) => file.endsWith(".json"));
+        const loaded = new Map<string, Target>();
 
-        for(let targetFileName of targets) {
+        for(let targetFileName of files.filter((file) => file.endsWith(".json"))) {
 
-            let target: any = JSON.parse(fs.readFileSync(path.join(this.path, targetFileName)).toString())
+            const targetName = path.basename(targetFileName, path.extname(targetFileName));
+            let target: any;
 
-            let targetName = path.basename(targetFileName, path.extname(targetFileName));
+            try {
+                target = JSON.parse(fs.readFileSync(path.join(this.path, targetFileName)).toString());
+            } catch (e) {
+                throw new Error("Target " + targetName + " is not valid JSON: " + e.message);
+            }
 
             this.validateTarget(targetName, target);
-
-            console.log("* Loaded target: " + targetName);
-
-            this.targets.set(targetName, <Target>target);
-
-
-            RateLimiter.registerTarget(targetName, target.rateLimit);
-            EmailService.registerTarget(targetName, target.smtp);
+            loaded.set(targetName, <Target>target);
 
         }
+
+        return loaded;
 
     }
 
     /**
-     * Validate a target file object and cancel the program if there are errors.
+     * Load all targets from the targets directory. Replaces the current targets.
+     * Throws (and keeps the previous targets) if anything is invalid.
+     */
+    public static load(): void {
+
+        console.log("Loading targets...");
+
+        const loaded = this.readAll();
+
+        // Build everything first, then swap, so a failure leaves the running state untouched
+        const limiters = new Map();
+        const transports = new Map();
+
+        loaded.forEach((target, targetName) => {
+            limiters.set(targetName, RateLimiter.create(target.rateLimit));
+            transports.set(targetName, EmailService.createTransport(target.smtp));
+        });
+
+        RateLimiter.replace(limiters);
+        EmailService.replace(transports);
+        this.targets = loaded;
+
+        loaded.forEach((_, targetName) => console.log("* Loaded target: " + targetName));
+
+    }
+
+    /**
+     * Validate a target object and throw a readable error if it is invalid.
      * @param targetName (file-)name of the target
      * @param target The target object
      * @private
@@ -61,13 +87,7 @@ export class TargetManager {
 
         if(validationErrors === undefined ) return;
 
-        console.error("Error: Target " + targetName + " is invalid!");
-
-        for(let err of validationErrors) {
-            console.error(err.error);
-        }
-
-        process.exit(-1);
+        throw new Error("Target " + targetName + " is invalid: " + validationErrors.map((err) => err.error).join("; "));
 
     }
 

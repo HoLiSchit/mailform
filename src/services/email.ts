@@ -11,12 +11,19 @@ export class EmailService {
     private static targetTransports: Map<string, Transporter> = new Map<string, Transporter>();
 
     /**
-     * Register a target in the email service
-     * @param targetName (file-)name of an existing and loaded target
-     * @param smtpURL A valid SMTP(S) URL
+     * Create a transport for a SMTP URL without registering it
      */
-    public static registerTarget(targetName: string, smtpURL: string): void {
-        this.targetTransports.set(targetName, nodemailer.createTransport(smtpURL));
+    public static createTransport(smtpURL: string): Transporter {
+        return nodemailer.createTransport(smtpURL);
+    }
+
+    /**
+     * Replace all registered transports at once and close the old ones (used when targets are reloaded)
+     */
+    public static replace(transports: Map<string, Transporter>): void {
+        const old = this.targetTransports;
+        this.targetTransports = transports;
+        old.forEach((transport) => transport.close());
     }
 
     /**
@@ -64,7 +71,7 @@ export class EmailService {
         const name = [firstName, lastName]
             .filter((part) => !!part)
             .join(" ")
-            .replace(/[<>"\r\n,;]/g, "")
+            .replace(/[<>"@\r\n,;]/g, "")
             .trim();
 
         return { name, address };

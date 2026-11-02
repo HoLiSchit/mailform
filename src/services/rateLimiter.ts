@@ -6,17 +6,20 @@ export class RateLimiter {
     private static limiters: Map<string, RateLimiterMemory> = new Map<string, RateLimiterMemory>();
 
     /**
-     * Register a target in the rate limiter service
-     * @param targetName Name of the target
-     * @param limits Rate limit configuration for target
+     * Create a limiter for one target without registering it
      */
-    public static registerTarget(targetName: string, limits: TargetRateLimit): void {
-
-        this.limiters.set(targetName, new RateLimiterMemory({
+    public static create(limits: TargetRateLimit): RateLimiterMemory {
+        return new RateLimiterMemory({
             duration: limits.timespan,
             points: limits.requests
-        }));
+        });
+    }
 
+    /**
+     * Replace all registered limiters at once (used when targets are reloaded)
+     */
+    public static replace(limiters: Map<string, RateLimiterMemory>): void {
+        this.limiters = limiters;
     }
 
     /**
