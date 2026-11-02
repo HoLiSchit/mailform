@@ -329,8 +329,8 @@ async function loadConfig() {
 async function deleteTarget(name) {
   if (!confirm(`Target "${name}" wirklich löschen?`)) return;
   try {
-    await api(`/api/targets/${encodeURIComponent(name)}`, { method: "DELETE" });
-    showMsg(`Target "${name}" gelöscht und Mailform neu gestartet.`, true);
+    const res = await api(`/api/targets/${encodeURIComponent(name)}`, { method: "DELETE" });
+    showMsg(`Target "${name}" gelöscht und Mailform ${res.restart.action}.`, true);
     loadTargets();
   } catch (e) {
     showMsg(e.message, false);
@@ -368,12 +368,12 @@ document.getElementById("targetForm").addEventListener("submit", async (e) => {
 
   try {
     if (editingName) {
-      await api(`/api/targets/${encodeURIComponent(editingName)}`, { method: "PUT", body: JSON.stringify(body) });
-      showMsg(`Target "${editingName}" gespeichert und Mailform neu gestartet.`, true);
+      const res = await api(`/api/targets/${encodeURIComponent(editingName)}`, { method: "PUT", body: JSON.stringify(body) });
+      showMsg(`Target "${editingName}" gespeichert und Mailform ${res.restart.action}.`, true);
     } else {
       body.name = document.getElementById("f-name").value.trim();
-      await api("/api/targets", { method: "POST", body: JSON.stringify(body) });
-      showMsg(`Target "${body.name}" angelegt und Mailform neu gestartet.`, true);
+      const res = await api("/api/targets", { method: "POST", body: JSON.stringify(body) });
+      showMsg(`Target "${body.name}" angelegt und Mailform ${res.restart.action}.`, true);
     }
     resetForm();
     loadTargets();

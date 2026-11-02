@@ -3,14 +3,16 @@ const cookieSession = require("cookie-session");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { exec } = require("child_process");
+const { execFile } = require("child_process");
 const { promisify } = require("util");
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 const PORT = process.env.PORT || 3006;
 const TARGETS_DIR = process.env.TARGETS_DIR || "/opt/mailform/targets";
 const CONTAINER_NAME = process.env.MAILFORM_CONTAINER || "mailform";
+// restart: docker restart (default); hup: SIGHUP, Mailform reloads the targets without a restart
+const RELOAD_MODE = process.env.RELOAD_MODE || "restart";
 const DEFAULT_SMTP = process.env.DEFAULT_SMTP || "";
 const PUBLIC_HOST = process.env.PUBLIC_HOST || "";
 const DASH_USER = process.env.DASH_USER || "admin";
@@ -24,6 +26,11 @@ if (!DASH_PASS) {
 
 if (!SESSION_SECRET) {
   console.error("SESSION_SECRET is not set. Refusing to start without one.");
+  process.exit(1);
+}
+
+if (!["restart", "hup"].includes(RELOAD_MODE)) {
+  console.error(`RELOAD_MODE must be "restart" or "hup", got "${RELOAD_MODE}".`);
   process.exit(1);
 }
 
@@ -163,16 +170,17 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function dockerRestart() {
-  await execAsync(`docker restart ${CONTAINER_NAME}`);
-}
+const docker = (...args) => execFileAsync("docker", args);
+
+const RELOAD_OK = "Targets reloaded";
+const RELOAD_FAILED = "Reload failed";
 
 async function isContainerHealthy() {
   // Give the process a moment to either start cleanly or crash-loop.
   for (let i = 0; i < 4; i++) {
     await sleep(750);
     try {
-      const { stdout } = await execAsync(`docker inspect -f "{{.State.Status}}" ${CONTAINER_NAME}`);
+      const { stdout } = await docker("inspect", "-f", "{{.State.Status}}", CONTAINER_NAME);
       const status = stdout.trim();
       if (status === "running") return true;
       if (status === "restarting" || status === "exited") return false;
@@ -184,34 +192,70 @@ async function isContainerHealthy() {
 }
 
 /**
- * Restart Mailform and verify it actually stayed up. If it crash-loops
- * (e.g. because of an invalid target file), run `onUnhealthy` to undo the
- * change and restart again, so one bad target can't take down every form.
+ * Send SIGHUP and wait for Mailform to report the result in its log.
+ * Returns { ok: true } or { ok: false, error }.
+ * Only use with an image that has the SIGHUP handler: an older one exits on SIGHUP.
  */
-async function restartAndVerify(onUnhealthy) {
+async function sendHup() {
+  const since = new Date().toISOString();
   try {
-    await dockerRestart();
+    await docker("kill", "--signal=HUP", CONTAINER_NAME);
   } catch (e) {
     return { ok: false, error: e.message };
   }
 
-  const healthy = await isContainerHealthy();
-  if (healthy) return { ok: true };
+  for (let i = 0; i < 20; i++) {
+    await sleep(250);
+    let logs;
+    try {
+      const { stdout, stderr } = await docker("logs", "--since", since, CONTAINER_NAME);
+      logs = `${stdout}\n${stderr}`;
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+    const failed = logs.split("\n").filter((l) => l.includes(RELOAD_FAILED)).pop();
+    if (failed) return { ok: false, error: failed.slice(failed.indexOf(RELOAD_FAILED)).trim() };
+    if (logs.includes(RELOAD_OK)) return { ok: true };
+  }
+  return { ok: false, error: "Keine Rückmeldung von Mailform nach dem Neuladen (weder Erfolg noch Fehler im Log)." };
+}
+
+async function reloadMailform() {
+  if (RELOAD_MODE === "hup") return sendHup();
+  try {
+    await docker("restart", CONTAINER_NAME);
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+  return isContainerHealthy().then((ok) => ({ ok, error: ok ? undefined : "crashed" }));
+}
+
+/**
+ * Apply a target change to Mailform and verify it took effect. If not, run
+ * `onUnhealthy` to undo the change and reload again, so one bad target can't
+ * take down every form.
+ */
+async function restartAndVerify(onUnhealthy) {
+  const action = RELOAD_MODE === "hup" ? "neu geladen" : "neu gestartet";
+  const result = await reloadMailform();
+  if (result.ok) return { ok: true, action };
 
   if (onUnhealthy) {
     try {
       onUnhealthy();
-      await dockerRestart();
+      await reloadMailform();
     } catch (e) {
       // fallthrough - report original problem below
     }
   }
 
-  return {
-    ok: false,
-    error:
-      "Mailform ist nach dieser Änderung abgestürzt (ungültiges Target) - die Änderung wurde automatisch zurückgerollt.",
-  };
+  const detail =
+    RELOAD_MODE === "hup"
+      ? `Mailform hat die Änderung nicht übernommen (${result.error}) - die Änderung wurde zurückgerollt.`
+      : result.error === "crashed"
+        ? "Mailform ist nach dieser Änderung abgestürzt (ungültiges Target) - die Änderung wurde automatisch zurückgerollt."
+        : `Mailform konnte nicht neu gestartet werden (${result.error}) - die Änderung wurde zurückgerollt.`;
+  return { ok: false, error: detail };
 }
 
 function validateTargetBody(body) {
@@ -381,7 +425,7 @@ app.delete("/api/targets/:name", async (req, res) => {
   fs.unlinkSync(targetPath(name));
 
   const restart = await restartAndVerify(() => {
-    fs.writeFileSync(targetPath(name), previousContent);
+    fs.writeFileSync(targetPath(name), previousContent, { mode: 0o600 });
   });
 
   if (!restart.ok) return res.status(422).json({ error: restart.error });
