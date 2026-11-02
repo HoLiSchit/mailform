@@ -170,7 +170,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const docker = (...args) => execFileAsync("docker", args);
+const docker = (...args) => execFileAsync("docker", args, { maxBuffer: 16 * 1024 * 1024 });
 
 const RELOAD_OK = "Targets reloaded";
 const RELOAD_FAILED = "Reload failed";
@@ -214,7 +214,7 @@ async function sendHup() {
       return { ok: false, error: e.message };
     }
     const failed = logs.split("\n").filter((l) => l.includes(RELOAD_FAILED)).pop();
-    if (failed) return { ok: false, error: failed.slice(failed.indexOf(RELOAD_FAILED)).trim() };
+    if (failed) return { ok: false, error: maskSmtp(failed.slice(failed.indexOf(RELOAD_FAILED)).trim()).replace(/smtps?:\/\/[^\s"']*/g, "smtp://***") };
     if (logs.includes(RELOAD_OK)) return { ok: true };
   }
   return { ok: false, error: "Keine Rückmeldung von Mailform nach dem Neuladen (weder Erfolg noch Fehler im Log)." };
@@ -227,7 +227,7 @@ async function reloadMailform() {
   } catch (e) {
     return { ok: false, error: e.message };
   }
-  return isContainerHealthy().then((ok) => ({ ok, error: ok ? undefined : "crashed" }));
+  return isContainerHealthy().then((ok) => ({ ok, crashed: !ok }));
 }
 
 /**
@@ -235,27 +235,37 @@ async function reloadMailform() {
  * `onUnhealthy` to undo the change and reload again, so one bad target can't
  * take down every form.
  */
-async function restartAndVerify(onUnhealthy) {
+async function restartAndVerifyUnlocked(onUnhealthy) {
   const action = RELOAD_MODE === "hup" ? "neu geladen" : "neu gestartet";
   const result = await reloadMailform();
   if (result.ok) return { ok: true, action };
 
+  let rollbackNote = "";
   if (onUnhealthy) {
     try {
       onUnhealthy();
-      await reloadMailform();
+      const again = await reloadMailform();
+      if (!again.ok) rollbackNote = " ACHTUNG: Auch das Neuladen nach dem Zurückrollen ist fehlgeschlagen, bitte Mailform prüfen.";
     } catch (e) {
-      // fallthrough - report original problem below
+      rollbackNote = " ACHTUNG: Zurückrollen fehlgeschlagen, bitte Zieldateien prüfen.";
     }
   }
 
   const detail =
     RELOAD_MODE === "hup"
       ? `Mailform hat die Änderung nicht übernommen (${result.error}) - die Änderung wurde zurückgerollt.`
-      : result.error === "crashed"
+      : result.crashed
         ? "Mailform ist nach dieser Änderung abgestürzt (ungültiges Target) - die Änderung wurde automatisch zurückgerollt."
         : `Mailform konnte nicht neu gestartet werden (${result.error}) - die Änderung wurde zurückgerollt.`;
-  return { ok: false, error: detail };
+  return { ok: false, error: detail + rollbackNote };
+}
+
+// Reloads one after another, so log lines of one reload are never attributed to another
+let reloadQueue = Promise.resolve();
+function restartAndVerify(onUnhealthy) {
+  const run = reloadQueue.then(() => restartAndVerifyUnlocked(onUnhealthy));
+  reloadQueue = run.catch(() => {});
+  return run;
 }
 
 function validateTargetBody(body) {
