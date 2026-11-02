@@ -3,8 +3,8 @@ import fs from "fs";
 import path from "path";
 import {RateLimiter} from "./rateLimiter";
 import {EmailService} from "./email";
-import validate from "validate.js";
-import {targetModel} from "../models/target";
+import {describeIssue} from "./validate";
+import {targetSchema} from "../models/target";
 
 export class TargetManager {
 
@@ -83,11 +83,16 @@ export class TargetManager {
      */
     private static validateTarget(targetName: string, target: Target): void {
 
-        let validationErrors = validate.validate(target, targetModel, {format: "detailed"})
+        const result = targetSchema.safeParse(target);
 
-        if(validationErrors === undefined ) return;
+        if(result.success) return;
 
-        throw new Error("Target " + targetName + " is invalid: " + validationErrors.map((err) => err.error).join("; "));
+        const problems = result.error.issues.map((issue) => {
+            const problem = describeIssue(issue);
+            return (problem.field || "target") + ": " + problem.violated;
+        });
+
+        throw new Error("Target " + targetName + " is invalid: " + problems.join("; "));
 
     }
 

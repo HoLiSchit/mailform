@@ -21,7 +21,7 @@ Unlike other mail services (that often gives you an API key for backends), this 
 - [Express](https://expressjs.com/)
 - [Typescript](https://www.typescriptlang.org/)
 - [Nodemailer](https://nodemailer.com/about/)
-- [Validate.js](https://validatejs.org/)
+- [zod](https://zod.dev/)
 - [rate-limiter-flexible](https://www.npmjs.com/package/rate-limiter-flexible)
 - [axios](https://github.com/axios/axios)
 
@@ -44,7 +44,7 @@ The image runs `node dist/main.js` directly (so signals reach the process) as th
 **File permissions:** target files contain SMTP passwords and should be mode `0600`. The container user must be able to read them: set `user: "<uid>:<gid>"` in Compose (or `docker run --user`) to the owner of the files (`id mailform` on the host), or `chown`/`chgrp` the files to uid/gid 1000. Otherwise Mailform cannot read the targets and does not start.
 
 ### Manually
-*Requires NodeJS 16 or higher*
+*Requires NodeJS 20 or higher*
 
 ```shell
 git clone https://github.com/Feuerhamster/mailform.git
@@ -203,7 +203,7 @@ npm test
 Runs the integration tests (Node test runner, builds first).
 
 ## 🔒 Dependencies
-`npm audit` status of this fork: `dashboard/` has 0 known vulnerabilities. In the main project `npm audit fix` resolved everything fixable without breaking changes. Left open: `nodemailer` (<= 10.1.3 advisories; the fix is a new major version, not applied yet) and `validate.js` (ReDoS, no fix available). The affected nodemailer features (`envelope.size`, transport `name`, `List-*` headers, `raw`, file/URL access) are, as far as reviewed, not fed with visitor input by MailForm (not independently verified for every advisory).
+`npm audit` reports 0 known vulnerabilities for the main project and for `dashboard/`. Request and target validation use [zod](https://zod.dev); mail is sent with [nodemailer](https://nodemailer.com) 10 (Node 20 or higher).
 
 ## 👋 Contribution
 Feel free to create issues and pull requests if you want!

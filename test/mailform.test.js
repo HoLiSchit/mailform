@@ -140,6 +140,23 @@ test("Pflichtfelder werden geprüft", async () => {
     assert.equal(r.status, 422);
 });
 
+test("Validierung: Fehlerformat, leere optionale Felder erlaubt, ungültige E-Mail abgelehnt", async () => {
+    const bad = await post("kontakt", form({ from: "kein-mail", subject: "x", body: "kurz" }));
+    assert.equal(bad.status, 422);
+    const json = await bad.json();
+    assert.equal(json.error, "validation_error");
+    const byField = Object.fromEntries(json.problems.map((p) => [p.field, p]));
+    assert.equal(byField.from.violated, "email");
+    assert.equal(byField.subject.violated, "length");
+    assert.deepEqual(byField.subject.expect, { minimum: 2 });
+    assert.equal(byField.body.violated, "length");
+
+    mails = [];
+    const ok = await post("kontakt", form({ from: "", firstName: "", lastName: "", subject: "Leere Felder", body: "Optional leer" }));
+    assert.equal(ok.status, 200);
+    assert.equal(mails.length, 1);
+});
+
 test("healthz antwortet", async () => {
     assert.equal((await fetch(`${base}/healthz`)).status, 200);
 });
@@ -158,4 +175,10 @@ test("SIGHUP lädt neue Ziele ohne Neustart, ungültige Konfiguration wird abgel
     await wait(400);
     assert.match(log, /Reload failed/);
     assert.equal((await post("neu", form({ subject: "Neu", body: "alter Stand bleibt" }))).status, 200);
+
+    fs.writeFileSync(path.join(dir, "defekt.json"), JSON.stringify({ smtp: "http://x", recipients: [], rateLimit: { timespan: "60" } }));
+    proc.kill("SIGHUP");
+    await wait(400);
+    assert.match(log, /Target defekt is invalid: smtp: .*recipients: .*rateLimit\.timespan/s);
+    fs.rmSync(path.join(dir, "defekt.json"));
 });

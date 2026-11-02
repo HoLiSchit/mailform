@@ -5,7 +5,7 @@ import {TargetManager} from "./services/targetManager";
 import {Target} from "./@types/target";
 import {RateLimiter} from "./services/rateLimiter";
 import validate from "./services/validate";
-import {postBody} from "./models/post";
+import {postSchema} from "./models/post";
 import {EmailService} from "./services/email";
 import {CaptchaService} from "./services/captcha";
 import getRedirectUrl from "./util/redirect";
@@ -103,7 +103,7 @@ router.post("/:target", async (req: Request, res: Response) => {
             return res.status(200).end();
         }
 
-        const validationResult = validate(fields, postBody);
+        const validationResult = validate(fields, postSchema);
 
         // validate fields
         if(validationResult.error) {

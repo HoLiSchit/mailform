@@ -1,81 +1,27 @@
-export const targetModel = {
-    smtp: {
-        type: "string",
-        presence: { allowEmpty: false },
-        url: {
-            schemes: ["smtp", "smtps"],
-            allowLocal: true
-        }
-    },
-    origin: {
-        presence: false
-    },
-    honeypot: {
-        type: "string",
-        presence: false
-    },
-    allowHtml: {
-        type: "boolean",
-        presence: false
-    },
-    allowUploads: {
-        type: "boolean",
-        presence: false
-    },
-    maxFileSizeMb: {
-        type: "number",
-        presence: false
-    },
-    recipients: {
-        type: "array",
-        presence: { allowEmpty: false }
-    },
-    from: {
-        type: "string",
-        presence: false
-    },
-    subjectPrefix: {
-        type: "string",
-        presence: false
-    },
-    redirect: {
-        type: "object",
-        presence: false
-    },
-    "redirect.success": {
-        type: "string",
-        presence: false
-    },
-    "redirect.error": {
-        type: "string",
-        presence: false
-    },
-    key: {
-        type: "string",
-        presence: false
-    },
-    fixedFrom: {
-        type: "boolean",
-        presence: false
-    },
-    rateLimit: {
-        type: "object",
-        presence: { allowEmpty: false }
-    },
-    "rateLimit.timespan": {
-        type: "number",
-        presence: true
-    },
-    "rateLimit.requests": {
-        type: "number",
-        presence: true
-    },
-    captcha: {
-        type: "object",
-        presence: false
-    },
-    "captcha.provider": {
-        type: "string",
-        inclusion: ["recaptcha", "hcaptcha"]
-    }
-}
+import {z} from "zod";
+
+export const targetSchema = z.looseObject({
+    smtp: z.url({protocol: /^smtps?$/}),
+    /** One allowed origin or a list. Empty/missing = all. */
+    origin: z.union([z.string(), z.array(z.string())]).optional(),
+    honeypot: z.string().optional(),
+    allowHtml: z.boolean().optional(),
+    allowUploads: z.boolean().optional(),
+    maxFileSizeMb: z.number().positive().optional(),
+    recipients: z.array(z.string()).min(1),
+    from: z.string().optional(),
+    subjectPrefix: z.string().optional(),
+    redirect: z.looseObject({
+        success: z.string().optional(),
+        error: z.string().optional()
+    }).optional(),
+    key: z.string().optional(),
+    fixedFrom: z.boolean().optional(),
+    rateLimit: z.looseObject({
+        timespan: z.number(),
+        requests: z.number()
+    }),
+    captcha: z.looseObject({
+        provider: z.enum(["recaptcha", "hcaptcha"])
+    }).optional()
+});
